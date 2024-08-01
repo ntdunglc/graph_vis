@@ -1,0 +1,104 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+#sidebar {
+    width: 200px;
+    padding: 20px;
+    background-color: #f0f0f0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+#graph {
+    flex-grow: 1;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.node {
+    cursor: pointer;
+}
+
+.link {
+    stroke: #999;
+    stroke-opacity: 0.6;
+    stroke-width: 1px;
+}
+
+.node-label {
+    font-size: 8px;
+    pointer-events: none;
+}
+
+#controls {
+    margin-bottom: 20px;
+}
+
+#controls label,
+#controls input {
+    display: block;
+    margin-bottom: 10px;
+}
+
+#controls button {
+    display: inline-block;
+    width: 150px;
+    margin-top: 10px;
+    margin-right: 10px;
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#controls button:hover {
+    background-color: #45a049;
+}
+
+#node-info {
+    margin-top: 20px;
+}
+
+.start-node {
+    stroke: #ff0000;
+    stroke-width: 2px;
+}
+
+#go-to-node-btn {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 12px;
+    margin: 4px 2px;
+    transition-duration: 0.4s;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+#go-to-node-btn:hover {
+    background-color: #45a049;
+}
+
+.node-label {
+    cursor: pointer;
+    pointer-events: all;
+    user-select: none;
+}
+
+.link {
+    stroke-width: 1.5px;
+}
+
+#arrowhead {
+    fill: #999;
+}
