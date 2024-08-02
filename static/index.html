@@ -12,7 +12,10 @@
         <div id="controls">
             <h3>Parameters</h3>
             <label for="start-node">Start Node ID:</label>
-            <select id="start-node"></select>
+            <div class="autocomplete">
+                <input id="start-node" type="text" placeholder="Enter node ID...">
+                <div id="autocomplete-list" class="autocomplete-items"></div>
+            </div>
             <label for="forward-depth">Forward Depth:</label>
             <input type="number" id="forward-depth" value="2" min="1">
             <label for="backward-depth">Backward Depth:</label>

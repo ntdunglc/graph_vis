@@ -1,4 +1,6 @@
 let svg, g, simulation, link, node, nodeLabels, width, height, zoom;
+let graphData = { nodes: [], links: [] };
+let nodeIds = [];
 
 async function initializeGraph() {
     width = document.getElementById('graph').clientWidth;
@@ -17,7 +19,6 @@ async function initializeGraph() {
         .attr("height", height)
         .call(zoom);
 
-    // Define arrowhead marker
     svg.append("defs").append("marker")
         .attr("id", "arrowhead")
         .attr("viewBox", "0 -5 10 10")
@@ -37,48 +38,131 @@ async function initializeGraph() {
         .force("charge", d3.forceManyBody().strength(-300))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
-    const initResponse = await fetch('/api/init');
-    const initData = await initResponse.json();
-    console.log(`Total nodes: ${initData.nodeCount}, Total links: ${initData.linkCount}`);
+    await fetchInitialNodeId();
+    setupAutocomplete();
+    await updateGraph();
 
-    await populateNodeDropdown();
-    updateGraph();
-
-    // Wait for the simulation to settle before centering
     simulation.on("end", () => {
         centerGraph();
-        // Display start node information after centering
-        const startNodeId = document.getElementById("start-node").value;
-        showNodeInfo(null, { id: startNodeId, type: "Unknown", label: `Node ${startNodeId}`, description: "Loading..." });
+        const startNodeId = document.getElementById("start-node").dataset.selectedId;
+        const startNode = graphData.nodes.find(n => n.id === startNodeId);
+        if (startNode) {
+            showNodeInfo(null, startNode);
+        }
     });
 }
 
-async function populateNodeDropdown() {
-    const response = await fetch('/api/node_ids');
-    const nodeIds = await response.json();
-    const dropdown = document.getElementById("start-node");
-    nodeIds.forEach(id => {
-        const option = document.createElement("option");
-        option.value = id;
-        option.text = `Node ${id}`;
-        dropdown.appendChild(option);
+async function fetchInitialNodeId() {
+    try {
+        const response = await fetch('/api/node_ids');
+        const ids = await response.json();
+        if (ids.length > 0) {
+            const startNodeInput = document.getElementById("start-node");
+            startNodeInput.value = ids[0];
+            startNodeInput.dataset.selectedId = ids[0];
+        }
+    } catch (error) {
+        console.error('Error fetching initial node ID:', error);
+    }
+}
+
+function setupAutocomplete() {
+    const input = document.getElementById("start-node");
+    const autocompleteList = document.getElementById("autocomplete-list");
+
+    input.addEventListener("input", debounce(async function () {
+        const searchTerm = input.value;
+        if (searchTerm.length < 2) {
+            autocompleteList.innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/node_ids?term=${searchTerm}`);
+            const matchingIds = await response.json();
+            displayAutocompleteResults(matchingIds);
+        } catch (error) {
+            console.error('Error fetching matching nodes:', error);
+        }
+    }, 300));
+
+    document.addEventListener("click", function (e) {
+        if (e.target !== input && e.target !== autocompleteList) {
+            autocompleteList.innerHTML = '';
+        }
     });
+}
+
+
+function displayAutocompleteResults(matchingIds) {
+    const autocompleteList = document.getElementById("autocomplete-list");
+    autocompleteList.innerHTML = '';
+
+    matchingIds.forEach(id => {
+        const div = document.createElement("div");
+        div.textContent = id;
+        div.addEventListener("click", function () {
+            selectAutocompleteOption(this.textContent);
+        });
+        autocompleteList.appendChild(div);
+    });
+}
+
+function selectAutocompleteOption(selectedId) {
+    const input = document.getElementById("start-node");
+    input.value = selectedId;
+    input.dataset.selectedId = selectedId;
+    document.getElementById("autocomplete-list").innerHTML = '';
+    updateGraph();
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 async function updateGraph() {
-    const startNodeId = document.getElementById("start-node").value;
+    const input = document.getElementById("start-node");
+    let startNodeId = input.value.trim(); // Get the current value of the input
+
+    // If the input is empty, fall back to the dataset selectedId
+    if (!startNodeId && input.dataset.selectedId) {
+        startNodeId = input.dataset.selectedId;
+    }
+
     const forwardDepth = parseInt(document.getElementById("forward-depth").value);
     const backwardDepth = parseInt(document.getElementById("backward-depth").value);
     const edgeLimit = parseInt(document.getElementById("edge-limit").value);
 
-    const response = await fetch(`/api/subgraph?startNodeId=${startNodeId}&forwardDepth=${forwardDepth}&backwardDepth=${backwardDepth}&edgeLimit=${edgeLimit}`);
-    const subgraph = await response.json();
+    if (!startNodeId) {
+        console.error('No start node selected');
+        return;
+    }
 
+    try {
+        const response = await fetch(`/api/subgraph?startNodeId=${startNodeId}&forwardDepth=${forwardDepth}&backwardDepth=${backwardDepth}&edgeLimit=${edgeLimit}`);
+        graphData = await response.json();
+    } catch (error) {
+        console.error('Error fetching subgraph:', error);
+        return;
+    }
+
+    renderGraph();
+}
+
+function renderGraph() {
     g.selectAll("*").remove();
 
     link = g.append("g")
         .selectAll("line")
-        .data(subgraph.links)
+        .data(graphData.links)
         .enter().append("line")
         .attr("class", "link")
         .attr("stroke", d => d.type === "output" ? "#1f77b4" : d.type === "input" ? "#2ca02c" : "#d62728")
@@ -86,10 +170,10 @@ async function updateGraph() {
 
     node = g.append("g")
         .selectAll("circle")
-        .data(subgraph.nodes)
+        .data(graphData.nodes)
         .enter().append("circle")
-        .attr("class", d => d.id === startNodeId ? "node start-node" : "node")
-        .attr("r", d => d.id === startNodeId ? 8 : 5)
+        .attr("class", d => d.id === document.getElementById("start-node").dataset.selectedId ? "node start-node" : "node")
+        .attr("r", d => d.id === document.getElementById("start-node").dataset.selectedId ? 8 : 5)
         .attr("fill", d => d.type === "rule" ? "#ff7f0e" : "#1f77b4")
         .call(d3.drag()
             .on("start", dragstarted)
@@ -100,31 +184,25 @@ async function updateGraph() {
 
     nodeLabels = g.append("g")
         .selectAll("text")
-        .data(subgraph.nodes)
+        .data(graphData.nodes)
         .enter().append("text")
-        .attr("class", "node-label")
-        .attr("dx", d => d.id === startNodeId ? 12 : 8)
+        .attr("class", "node-id")
+        .attr("dx", d => d.id === document.getElementById("start-node").dataset.selectedId ? 12 : 8)
         .attr("dy", ".35em")
-        .text(d => d.label)
+        .text(d => d.id)
         .style("cursor", "pointer")
         .on("click", (event, d) => { event.stopPropagation(); showNodeInfo(event, d); })
         .on("dblclick", (event, d) => { event.stopPropagation(); goToNode(d.id); });
 
-    simulation.nodes(subgraph.nodes).on("tick", ticked);
-
-    simulation.force("link").links(subgraph.links);
-
+    simulation.nodes(graphData.nodes).on("tick", ticked);
+    simulation.force("link").links(graphData.links);
     simulation.alpha(1).restart();
 
-    // Center the graph and show start node info after a short delay
     setTimeout(() => {
         centerGraph();
-        showNodeInfo(null, subgraph.nodes.find(n => n.id === startNodeId));
+        const startNodeId = document.getElementById("start-node").dataset.selectedId;
+        showNodeInfo(null, graphData.nodes.find(n => n.id === startNodeId));
     }, 100);
-}
-
-function zoomed(event) {
-    g.attr("transform", event.transform);
 }
 
 function showNodeInfo(event, d) {
@@ -133,72 +211,35 @@ function showNodeInfo(event, d) {
         <h3>Node Information</h3>
         <p><strong>ID:</strong> ${d.id}</p>
         <p><strong>Type:</strong> ${d.type}</p>
-        <p><strong>Label:</strong> ${d.label}</p>
         <p><strong>Description:</strong> ${d.description}</p>
-        <button id="go-to-node-btn">Go To #${d.id}</button>
+        <button id="go-to-node-btn">Go To ${d.id}</button>
+        <p><i>Click on a node to see its details here, or double click to change start node.</i></p>
     `;
 
-    // Add event listener to the new Go button
     document.getElementById("go-to-node-btn").addEventListener("click", () => goToNode(d.id));
 }
 
-function goToNode(nodeId) {
-    document.getElementById("start-node").value = nodeId;
-    updateGraph();
+async function goToNode(nodeId) {
+    const input = document.getElementById("start-node");
+    input.value = nodeId;
+    input.dataset.selectedId = nodeId;
+    await updateGraph();
 }
 
-function getSubgraph(startNodeId, forwardDepth, backwardDepth, edgeLimit) {
-    const subgraph = { nodes: new Map(), links: new Set() };
-    const visitedForward = new Set();
-    const visitedBackward = new Set();
+function centerGraph() {
+    const startNodeId = document.getElementById("start-node").dataset.selectedId;
+    const startNode = node.filter(d => d.id === startNodeId).datum();
 
-    function addNode(id) {
-        if (!subgraph.nodes.has(id)) {
-            const node = graphData.nodes.find(n => n.id === id);
-            if (node) subgraph.nodes.set(id, { ...node });
-        }
+    if (startNode) {
+        const scale = 1;
+        const x = width / 2 - startNode.x * scale;
+        const y = height / 2 - startNode.y * scale;
+
+        svg.transition().duration(750).call(
+            zoom.transform,
+            d3.zoomIdentity.translate(x, y).scale(scale)
+        );
     }
-
-    function traverseForward(nodeId, depth) {
-        if (depth >= forwardDepth || visitedForward.has(nodeId)) return;
-        visitedForward.add(nodeId);
-        addNode(nodeId);
-
-        const outgoingLinks = graphData.links
-            .filter(l => l.source === nodeId)
-            .slice(0, edgeLimit);
-
-        for (const link of outgoingLinks) {
-            subgraph.links.add({ ...link });
-            addNode(link.target);
-            traverseForward(link.target, depth + 1);
-        }
-    }
-
-    function traverseBackward(nodeId, depth) {
-        if (depth >= backwardDepth || visitedBackward.has(nodeId)) return;
-        visitedBackward.add(nodeId);
-        addNode(nodeId);
-
-        const incomingLinks = graphData.links
-            .filter(l => l.target === nodeId)
-            .slice(0, edgeLimit);
-
-        for (const link of incomingLinks) {
-            subgraph.links.add({ ...link });
-            addNode(link.source);
-            traverseBackward(link.source, depth + 1);
-        }
-    }
-
-    addNode(startNodeId);
-    traverseForward(startNodeId, 0);
-    traverseBackward(startNodeId, 0);
-
-    return {
-        nodes: Array.from(subgraph.nodes.values()),
-        links: Array.from(subgraph.links)
-    };
 }
 
 function ticked() {
@@ -209,14 +250,14 @@ function ticked() {
             const dx = d.target.x - d.source.x;
             const dy = d.target.y - d.source.y;
             const length = Math.sqrt(dx * dx + dy * dy);
-            const scale = (length - 10) / length; // Adjust 10 to change arrow position
+            const scale = (length - 10) / length;
             return d.source.x + dx * scale;
         })
         .attr("y2", d => {
             const dx = d.target.x - d.source.x;
             const dy = d.target.y - d.source.y;
             const length = Math.sqrt(dx * dx + dy * dy);
-            const scale = (length - 10) / length; // Adjust 10 to change arrow position
+            const scale = (length - 10) / length;
             return d.source.y + dy * scale;
         });
 
@@ -246,20 +287,9 @@ function dragended(event, d) {
     d.fy = null;
 }
 
-function centerGraph() {
-    const startNodeId = document.getElementById("start-node").value;
-    const startNode = node.filter(d => d.id === startNodeId).datum();
 
-    if (startNode) {
-        const scale = 1;
-        const x = width / 2 - startNode.x * scale;
-        const y = height / 2 - startNode.y * scale;
-
-        svg.transition().duration(750).call(
-            zoom.transform,
-            d3.zoomIdentity.translate(x, y).scale(scale)
-        );
-    }
+function zoomed(event) {
+    g.attr("transform", event.transform);
 }
 
 // Initialize the graph
@@ -269,3 +299,8 @@ initializeGraph();
 document.getElementById("update-graph-btn").addEventListener("click", updateGraph);
 document.getElementById("center-graph-btn").addEventListener("click", centerGraph);
 
+document.getElementById("start-node").addEventListener("change", function () {
+    if (this.dataset.selectedId) {
+        updateGraph();
+    }
+});

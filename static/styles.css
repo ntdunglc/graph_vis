@@ -3,14 +3,16 @@ body {
     margin: 0;
     padding: 0;
     display: flex;
+    height: 100vh;
 }
 
 #sidebar {
-    width: 200px;
+    width: 250px;
     padding: 20px;
     background-color: #f0f0f0;
     height: 100vh;
     overflow-y: auto;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 #graph {
@@ -19,42 +21,44 @@ body {
     overflow: hidden;
 }
 
-.node {
-    cursor: pointer;
-}
-
-.link {
-    stroke: #999;
-    stroke-opacity: 0.6;
-    stroke-width: 1px;
-}
-
-.node-label {
-    font-size: 8px;
-    pointer-events: none;
-}
-
 #controls {
     margin-bottom: 20px;
 }
 
-#controls label,
-#controls input {
+#controls h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+#controls label {
     display: block;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+#controls input,
+#controls select {
+    display: block;
+    width: 100%;
+    padding: 5px;
     margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
 #controls button {
-    display: inline-block;
-    width: 150px;
+    display: block;
+    width: 100%;
+    padding: 10px;
     margin-top: 10px;
-    margin-right: 10px;
-    padding: 5px 10px;
     background-color: #4CAF50;
     color: white;
     border: none;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    transition: background-color 0.3s;
 }
 
 #controls button:hover {
@@ -63,42 +67,109 @@ body {
 
 #node-info {
     margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ccc;
 }
 
-.start-node {
+#node-info h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.node {
+    cursor: pointer;
+}
+
+.node:hover {
+    stroke: #000;
+    stroke-width: 1.5px;
+}
+
+.node.start-node {
     stroke: #ff0000;
     stroke-width: 2px;
 }
 
-#go-to-node-btn {
-    background-color: #4CAF50;
-    border: none;
-    color: white;
-    padding: 5px 10px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 12px;
-    margin: 4px 2px;
-    transition-duration: 0.4s;
-    cursor: pointer;
-    border-radius: 3px;
-}
-
-#go-to-node-btn:hover {
-    background-color: #45a049;
-}
-
 .node-label {
-    cursor: pointer;
+    font-size: 8px;
     pointer-events: all;
     user-select: none;
+    cursor: pointer;
 }
 
 .link {
     stroke-width: 1.5px;
+    stroke-opacity: 0.6;
 }
 
 #arrowhead {
     fill: #999;
+}
+
+#go-to-node-btn {
+    display: inline-block;
+    padding: 5px 10px;
+    margin-top: 10px;
+    background-color: #008CBA;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#go-to-node-btn:hover {
+    background-color: #007B9A;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+
+    #sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+    }
+
+    #graph {
+        height: 50vh;
+    }
+}
+
+.autocomplete {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    background-color: #fff; 
+    border-bottom: 1px solid #d4d4d4; 
+}
+
+.autocomplete-items div:hover {
+    background-color: #e9e9e9; 
+}
+
+#start-node {
+    width: 100%;
+    padding: 5px;
 }
